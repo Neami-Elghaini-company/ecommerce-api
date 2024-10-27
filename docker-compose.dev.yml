@@ -1,12 +1,17 @@
 services:
   api:
+    image: amineelgaini/online-shop-api
     build:
       context: .
       target: development
-    # volumes:
-    #   - ./src:/app/src:ro
+    ports:
+      - "8000:8000"
     environment:
       NODE_ENV: development
+      URI: mongodb://root:password@mongo:27017
+      PORT: 8000
+    depends_on:
+      - mongo
 
     develop:
       watch:
@@ -18,3 +23,16 @@ services:
         - path: ./
           target: /app
           action: sync
+
+  mongo:
+    image: mongo
+    restart: always
+    volumes:
+      - mongo-db:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: password
+
+  
+volumes:
+  mongo-db:
