@@ -1,6 +1,6 @@
 services:
   api:
-    image: amineelgaini/online-shop-api
+    # image: amineelgaini/online-shop-api
     build:
       context: .
       target: production
@@ -11,4 +11,5 @@ services:
     
     environment:
       NODE_ENV: production
+      MONGO_URI : "mongodb+srv://onlineShop:NSJzX27FEbcJbdG0@onlineshop.ewihd.mongodb.net/onlineShop?retryWrites=true&w=majority&appName=onlineShop" 
       PORT: 8000

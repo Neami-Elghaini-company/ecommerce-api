@@ -1,53 +1,50 @@
-// const express = require('express');
-// const mongoose = require('mongoose');
+require('dotenv').config();
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require('cors');
+const userRoute = require("./routes/route.user");
+const productRoute = require("./routes/route.product");
+const orderRoute = require("./routes/route.order");
+const cartRoute = require("./routes/route.cart");
+const profileRoute = require("./routes/route.profile");
+const reviewRoute = require("./routes/route.review");
+const port = process.env.PORT;
+const uri = process.env.MONGO_URI;
 
-// const PORT = process.env.PORT || 8000;
-// const app = express();
+console.log(".envs :" ,process.env);
 
-// // const DB_USER = 'root';
-// // const DB_PASSWORD = 'password';
-// // const DB_PORT = 27017;
-// // const DB_HOST = 'mongo';
-// // const URI = `mongodb://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}`;
-// // mongoose.connect(URI).then(()=>console.log("connect to db...")).catch((err)=>console.log("failed to connect to db: ", err));
-// mongoose.connect(process.env.URI).then(()=>console.log("connect to db...")).catch((err)=>console.log("failed to connect to db: ", err));
-
-
-
-// app.listen(PORT, ()=> console.log(`app is up and running on port: ${PORT}`));
-
-// ------------------------------------------
-
-// require('dotenv').config()
-
-const express = require('express')
-const mongoose = require('mongoose')
-const userRoutes = require('./routes/users')
 
 // express app
-const app = express()
+const app = express();
 
 // middleware
-app.use(express.json())
+app.use(cors());
+app.use(express.json());
 
-app.use((req, res, next) => {
-  console.log(req.path, req.method)
-  next()
-})
+
 
 // routes
-app.get('/', (req, res)=> res.send(`<h1>helloo${process.env.URI}</h1>`));
-app.use('/api/users', userRoutes)
+app.use("/api/users", userRoute);
+// app.use("/api/products", productRoute);
+// app.use("/api/orders", orderRoute);
+// app.use("/api/carts", cartRoute);
+// app.use("/api/profiles", profileRoute);
+// app.use("/api/reviews", reviewRoute);
+
+app.get("/", (req, res) => res.json({message:"hello from ecommerce api!" }));
+
+
 
 // connect to db
-mongoose.connect(process.env.URI)
-  .then(() => {
-    console.log('connected to database')
-    // listen to port
-    app.listen(process.env.PORT, () => {
-      console.log('listening for requests on port', process.env.PORT)
+mongoose
+    .connect(uri)
+    .then(() => {
+        console.log("connected to database");
+        // listen to port
+        app.listen(port, () => {
+            console.log("listening for requests on port", port);
+        });
     })
-  })
-  .catch((err) => {
-    console.log(err)
-  }) 
+    .catch((err) => {
+        console.log(err);
+    });
