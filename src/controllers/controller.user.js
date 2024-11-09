@@ -1,95 +1,157 @@
-const User = require('../models/model.user')
-const mongoose = require('mongoose')
+const User = require("../models/model.user");
+const asyncWrapper = require("../middlewares/asyncWrapper");
+const appError = require("../utils/appError");
+const httpStatusText = require("../utils/httpStatusText");
+const bcrypt = require("bcrypt");
+const generateJWT = require("../middlewares/generateJWT");
 
-// get all users
-const getusers = async (req, res) => {
-  const users = await User.find({}).sort({createdAt: -1})
+const getAllUsers = asyncWrapper(async (req, res, next) => {
+  // pagination
+    const query = req.query;
+    let limit = query.limit || 6;
+    const page = query.page || 1;
+    if (limit == 0) {
+        limit = 6;
+    }
+    const skip = (page - 1) * limit;
+    
+    const users = await User.find({}, { __v: false, password: false })
+        .limit(limit)
+        .skip(skip);
+    res.status(200).json({ status: httpStatusText.SUCCESS, data: users });
+});
 
-  res.status(200).json(users)
-}
+const getUser = asyncWrapper(async (req, res, next) => {
+    const id = req.params.id;
+    const users = await User.findById(id, { __v: false, password: false });
+    res.status(200).json({ status: httpStatusText.SUCCESS, data: users });
+});
 
-// get a single user
-const getUser = async (req, res) => {
-  const { id } = req.params
+const deleteUser = asyncWrapper(async (req, res, next) => {
+    const id = req.params.id;
 
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(404).json({error: 'No such user'})
-  }
+    const deleteUser = await User.findByIdAndDelete(id);
 
-  const user = await User.findById(id)
+    if (!deleteUser) {
+        const error = appError.create(
+            "food not found!",
+            404,
+            httpStatusText.FAIL
+        );
+        return next(error);
+    }
+    res.status(201).json({ status: httpStatusText.SUCCESS, data: null });
+});
 
-  if (!user) {
-    return res.status(404).json({error: 'No such user'})
-  }
+const updateUser = asyncWrapper(async (req, res, next) => {
+    const id = req.params.id;
+    const updateUser = await User.findByIdAndUpdate(id, req.body);
+    if (!updateUser) {
+        const error = appError.create(
+            "food not found!",
+            404,
+            httpStatusText.FAIL
+        );
+        return next(error);
+    }
+    res.status(200).json({ status: httpStatusText.SUCCESS, data: null });
+});
 
-  res.status(200).json(user)
-}
+const register = asyncWrapper(async (req, res, next) => {
+    const {
+        firstName,
+        lastName,
+        email,
+        password,
+        dateCreation,
+        phoneNumber,
+        role,
+    } = req.body;
 
-// create a new user
-const createUser = async (req, res) => {
-  const {name, age} = req.body
+    const oldUser = await User.findOne({ email });
 
-  let emptyFields = []
+    if (oldUser) {
+        const error = appError.create(
+            "user already exists !",
+            400,
+            httpStatusText.FAIL
+        );
+        return next(error);
+    }
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-  if (!name) {
-    emptyFields.push('name')
-  }
-  if (!age) {
-    emptyFields.push('age')
-  }
-  if (emptyFields.length > 0) {
-    return res.status(400).json({ error: 'Please fill in all fields', emptyFields })
-  }
+    const newUser = new User({
+        firstName,
+        lastName,
+        email,
+        password: hashedPassword,
+        dateCreation,
+        phoneNumber,
+        role,
+    });
 
-  // add to the database
-  try {
-    const user = await User.create({ name, age })
-    res.status(200).json(user)
-  } catch (error) {
-    res.status(400).json({ error: error.message })
-  }
-}
+    const token = generateJWT({
+        email: newUser.email,
+        _id: newUser._id,
+        role: newUser.role,
+    });
+    newUser.token = token;
+    await newUser.save();
 
-// delete a user
-const deleteUser = async (req, res) => {
-  const { id } = req.params
+    res.status(201).json({
+        status: httpStatusText.SUCCESS,
+        data: { user: newUser },
+    });
+});
 
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({error: 'No such user'})
-  }
+const login = asyncWrapper(async (req, res, next) => {
+    const { email, password } = req.body;
 
-  const user = await User.findOneAndDelete({_id: id})
+    if (!email || !password) {
+        const error = appError.create(
+            "email and password required !",
+            400,
+            httpStatusText.FAIL
+        );
+        return next(error);
+    }
+    const user = await User.findOne({ email });
+    console.log("user=", user);
+    if (!user) {
+        const error = appError.create(
+            "user not found",
+            404,
+            httpStatusText.FAIL
+        );
+        return next(error);
+    }
+    const matchedPassword = await bcrypt.compare(password, user.password);
 
-  if(!user) {
-    return res.status(400).json({error: 'No such user'})
-  }
-
-  res.status(200).json(user)
-}
-
-// update a user
-const updateUser = async (req, res) => {
-  const { id } = req.params
-
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({error: 'No such user'})
-  }
-
-  const user = await User.findOneAndUpdate({_id: id}, {
-    ...req.body
-  })
-
-  if (!user) {
-    return res.status(400).json({error: 'No such user'})
-  }
-
-  res.status(200).json(user)
-}
+    if (user && matchedPassword) {
+        const token = generateJWT({
+            email: user.email,
+            _id: user.id,
+            role: user.role,
+        });
+        res.status(200).json({
+            status: httpStatusText.SUCCESS,
+            data: { token, role: user.role, id: user._id },
+        });
+    } else {
+        const error = appError.create(
+            "password invalid",
+            404,
+            httpStatusText.FAIL
+        );
+        return next(error);
+    }
+});
 
 module.exports = {
-  getusers,
-  getUser,
-  createUser,
-  deleteUser,
-  updateUser
-}
+    getAllUsers,
+    getUser,
+    register,
+    login,
+    deleteUser,
+    updateUser,
+};
