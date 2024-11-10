@@ -1,6 +1,5 @@
 services:
   api:
-    # image: amineelgaini/online-shop-api
     build:
       context: .
       target: production
