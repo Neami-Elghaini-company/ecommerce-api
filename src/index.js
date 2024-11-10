@@ -38,6 +38,8 @@ app.post("/api", (req, res) => {
 app.all("*",(req,res)=>{
     res.status(500).json({error: "this resourses is not available!"});
   })
+    // Global error-handling middleware for catching and responding to errors in the application
+    // Sends a structured JSON response with status, message, code, and data fields
   app.use((err,req,res,next)=>{
       res.status(err.statusCode || 500).json({
           status:err.statusText || httpStatusText.ERROR,
